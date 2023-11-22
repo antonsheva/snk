@@ -1,0 +1,511 @@
+// ---------------------------------------------------------------------------
+#include <vcl.h>
+#pragma hdrstop
+
+#include "main.h"
+// ---------------------------------------------------------------------------
+#pragma package(smart_init)
+#pragma resource "*.dfm"
+
+Tfrm1 *frm1;
+
+TPanel* pnlObj[Y_LEN][X_LEN];
+TPanel* eyeObj[EYE_LEN][EYE_LEN];
+TEdit*  edObj[EYE_LEN*2][EYE_LEN*2];
+
+int A_dir = UP;
+int A_eat_cnt;
+// ---------------------------------------------------------------------------
+__fastcall Tfrm1::Tfrm1(TComponent* Owner) : TForm(Owner)
+{
+
+}
+
+void Tfrm1::AInitSpace()
+{
+	int x,y,i;
+	for(y = 0; y < Y_LEN; y++)
+	   for(x = 0; x < X_LEN; x++)
+		  A_space[x][y] = 0;
+
+  for (i = 0; i < X_LEN; i++){
+	A_space[i][0]  = BLOCK;
+	A_space[i][49] = BLOCK;
+	A_space[0] [i] = BLOCK;
+	A_space[49][i] = BLOCK;
+  }
+
+  A_space[25][25] = FOOD;
+  A_space[35][20] = FOOD;
+  A_space[5 ][40] = FOOD;
+  A_space[45][12] = FOOD;
+  A_space[33][33] = FOOD;
+  A_space[11][2 ] = FOOD;
+  A_space[20][45] = FOOD;
+
+
+  A_space[33][25] = BLOCK;
+  A_space[34][25] = BLOCK;
+  A_space[35][25] = BLOCK;
+  A_space[36][25] = BLOCK;
+
+
+  A_space[40][30] = BLOCK;
+  A_space[40][31] = BLOCK;
+  A_space[40][32] = BLOCK;
+  A_space[40][33] = BLOCK;
+}
+
+void Tfrm1::AInitWts_1()
+{
+	int x,y;
+
+	for(y = 0; y < Y_LEN; y++){
+	   for(x = 0; x < X_LEN; x++){
+	   A_food[x][y].s_up = 1;
+	   A_food[x][y].s_lf = 1;
+	   A_food[x][y].s_dn = 1;
+	   A_food[x][y].s_rt = 1;
+	   }
+	}
+
+	for(y = 0; y < Y_LEN; y++){
+	   for(x = 0; x < X_LEN; x++){
+	   A_block[x][y].s_up = -1;
+	   A_block[x][y].s_lf = -1;
+	   A_block[x][y].s_dn = -1;
+	   A_block[x][y].s_rt = -1;
+	   }
+	}
+
+}
+
+void Tfrm1::AInitWts()
+{
+	int x,y,i;
+
+	for (i = 0; i < 9; i++) {
+	   A_food[i][0].s_up = 1;
+	   A_food[0][i].s_lf = 1;
+	   A_food[i][8].s_dn = 1;
+	   A_food[8][i].s_rt = 1;
+	}
+
+	for (i = 1; i < 8; i++) {
+	   A_food[i][1].s_up = 2;
+	   A_food[1][i].s_lf = 2;
+	   A_food[i][7].s_dn = 2;
+	   A_food[7][i].s_rt = 2;
+	}
+
+	for (i = 2; i < 7; i++) {
+	   A_food[i][2].s_up = 3;
+	   A_food[2][i].s_lf = 3;
+	   A_food[i][6].s_dn = 3;
+	   A_food[6][i].s_rt = 3;
+	}
+
+	for (i = 3; i < 6; i++) {
+	   A_food[i][3].s_up = 6;
+	   A_food[3][i].s_lf = 6;
+	   A_food[i][5].s_dn = 6;
+	   A_food[5][i].s_rt = 6;
+	}
+
+	for (i = 2; i < 7; i++) {
+	   A_block[i][2].s_up = -3;
+	   A_block[2][i].s_lf = -3;
+	   A_block[i][6].s_dn = -3;
+	   A_block[6][i].s_rt = -3;
+	}
+
+	for (i = 3; i < 6; i++) {
+	   A_block[i][3].s_up = -6;
+	   A_block[3][i].s_lf = -6;
+	   A_block[i][5].s_dn = -6;
+	   A_block[5][i].s_rt = -6;
+	}
+
+}
+
+void Tfrm1::ASetSnakeBodyPos()
+{
+   int i;
+   for(i = 0; i < (snk.len-1); i++) {
+	  A_space[snk.bd_x[i]][snk.bd_y[i]] = BODY;
+   }
+}
+
+void Tfrm1::AResetSnkWts()
+{
+   snk.wt_up = snk.wt_dn = snk.wt_rt = snk.wt_lf = 0;
+}
+
+void Tfrm1::AScanSpace()
+{
+	int x,y,i;
+	int x1, y1;
+	int type = chk1->Checked ? FOOD : BLOCK;
+	for(y1 = 0; y1 < EYE_LEN; y1++) {
+		for(x1 = 0; x1 < EYE_LEN; x1++) {
+			x = snk.x-EYE_LEN/2+x1;
+			y = snk.y-EYE_LEN/2+y1;
+			if((x>=0)&&(x<=X_LEN-1)&&(y>=0)&&(y<=Y_LEN-1)){
+				A_eye[x1][y1] = A_space[x][y];
+//				switch(A_eye[x1][y1]){
+//					case FOOD : eyeObj[x1][y1]->Color = clLime; break;
+//					case BLOCK: eyeObj[x1][y1]->Color = clBlack;  break;
+//					case BODY : eyeObj[x1][y1]->Color = clBlue; break;
+//					default   : eyeObj[x1][y1]->Color = clGray; break;
+//				}
+			}
+		}
+	}
+//	eyeObj[4][4]->Color = clRed;
+	AGetWts();
+//    AShowBrainWts();
+}
+
+void Tfrm1::AShowBrainWts()
+{
+//	snk.wt_up
+  edWtsUp->Text = snk.wt_up;
+  edWtsDn->Text = snk.wt_dn;
+  edWtsLf->Text = snk.wt_lf;
+  edWtsRt->Text = snk.wt_rt;
+
+}
+
+void Tfrm1::ACreateEat()
+{
+  BYTE x,y;
+  A_eat_cnt++;
+  if(A_eat_cnt>15){
+	  A_eat_cnt = 0;
+	  x = (rand()*Time())%X_LEN;
+	  y = (rand()*Time())%Y_LEN;
+	  if(!A_space[x][y])A_space[x][y] = FOOD;
+  }
+}
+
+void Tfrm1::AGetWts()
+{
+	int x,y;
+	WORD dir = rand()*2;
+	dir &= 2;
+	AResetSnkWts();
+	for(y = 0; y < EYE_LEN; y++){
+	   for(x = 0; x < EYE_LEN; x++){
+		  snk.wt_up += (A_eye[x][y]==FOOD) ? A_food[x][y].s_up : 0;
+		  snk.wt_dn += (A_eye[x][y]==FOOD) ? A_food[x][y].s_dn : 0;
+		  snk.wt_lf += (A_eye[x][y]==FOOD) ? A_food[x][y].s_lf : 0;
+		  snk.wt_rt += (A_eye[x][y]==FOOD) ? A_food[x][y].s_rt : 0;
+	   }
+	}
+
+	for(y = 0; y < EYE_LEN; y++){
+	   for(x = 0; x < EYE_LEN; x++){
+		  snk.wt_up += ((A_eye[x][y]==BLOCK)||(A_eye[x][y]==BODY)) ? A_block[x][y].s_up : 0;
+		  snk.wt_dn += ((A_eye[x][y]==BLOCK)||(A_eye[x][y]==BODY)) ? A_block[x][y].s_dn : 0;
+		  snk.wt_lf += ((A_eye[x][y]==BLOCK)||(A_eye[x][y]==BODY)) ? A_block[x][y].s_lf : 0;
+		  snk.wt_rt += ((A_eye[x][y]==BLOCK)||(A_eye[x][y]==BODY)) ? A_block[x][y].s_rt : 0;
+	   }
+	}
+
+	if(snk.wt_up==snk.wt_lf)
+		if(dir)snk.wt_up++;
+		else   snk.wt_lf++;
+
+	if(snk.wt_up==snk.wt_rt)
+		if(dir)snk.wt_rt++;
+		else   snk.wt_up++;
+
+	if(snk.wt_up==snk.wt_dn)
+		if(dir)snk.wt_dn++;
+		else   snk.wt_up++;
+
+	if(snk.wt_dn==snk.wt_lf)
+		if(dir)snk.wt_lf++;
+		else   snk.wt_dn++;
+
+	if(snk.wt_dn==snk.wt_rt)
+		if(dir)snk.wt_dn++;
+		else   snk.wt_rt++;
+
+	if(snk.wt_lf==snk.wt_rt)
+		if(dir)snk.wt_rt++;
+        else   snk.wt_lf++;
+
+
+}
+
+
+
+int Tfrm1::AMakeDecision()
+{
+	int i, res;
+	int max = -10000000;
+	int data[4] = {snk.wt_up, snk.wt_dn, snk.wt_lf, snk.wt_rt};
+	for(i = 0; i < 4; i++) {
+	   if(data[i]>max){
+		max = data[i];
+		res = i+1;
+	   }
+	}
+	return res;
+}
+
+void Tfrm1::AShowSnake()
+{
+   int x,y,i;
+   pnlObj[snk.x][snk.y]->Color = clRed;
+//   for(i = 0; i < snk.len; i++) {
+//	  pnlObj[snk.bd_x[i]][snk.bd_y[i]]->Color = clBlue;
+//   }
+  ASetSnakeBodyPos();
+
+}
+
+void Tfrm1::AClearSnakeBody()
+{
+  int c;
+  for(c = 0; c < 100; c++){
+	snk.bd_x[c] = 0;
+	snk.bd_y[c] = 0;
+  }
+}
+
+void Tfrm1::AInitSnake()
+{
+   int x,y,i;
+   snk.len = 10;
+   snk.x = 25;
+   snk.y = 29;
+   snk.death = 0;
+   snk.food_cnt = 0;
+   for(y = 0; y < EYE_LEN; y++)
+	 for(x = 0; x < EYE_LEN; x++)
+			snk.brain[x][y] = 0;
+
+   for(i = 0; i < snk.len; i++){
+		snk.bd_x[i] = 25;
+		snk.bd_y[i] = 30+i;
+   }
+   AInitWts();
+   ASetSnakeBodyPos();
+}
+
+
+void Tfrm1::ARefreshFild()
+{
+   int x,y;
+   for(y = 0; y < Y_LEN; y++)
+	 for(x = 0; x < X_LEN; x++)
+		switch(A_space[x][y]){
+			case FOOD : pnlObj[x][y]->Color = clLime ;break;
+			case BLOCK: pnlObj[x][y]->Color = clBlack;break;
+			case BODY : pnlObj[x][y]->Color = clBlue ;break;
+
+			default   : pnlObj[x][y]->Color = clGray;break;
+		}
+   Application->ProcessMessages();
+}
+
+
+void Tfrm1::AShiftSnke(int dir)
+{
+   int i, tmp_x, tmp_y;
+   int x_last, y_last;
+   int stop = 0;
+   int food = 0;
+   int block = 0;
+   tmp_x = snk.x;
+   tmp_y = snk.y;
+   x_last = snk.bd_x[snk.len-2];
+   y_last = snk.bd_y[snk.len-2];
+   if(snk.death)return;
+   switch(dir){
+		case UP :if(snk.y)   snk.y--; else stop = 1; break;
+		case DN :if(snk.y<Y_LEN-1)snk.y++; else stop = 1; break;
+		case LFT:if(snk.x)   snk.x--; else stop = 1; break;
+		case RGT:if(snk.x<X_LEN-1)snk.x++; else stop = 1; break;
+   }
+   if(stop) return;
+   if(A_space[snk.x][snk.y]==FOOD )food  = 1;
+   if((A_space[snk.x][snk.y]==BLOCK)||(A_space[snk.x][snk.y]==BODY))block = 1;
+   if(block){ed1->Text = "stop"; snk.death=1; return;}
+   if(food){
+		snk.food_cnt++;
+
+		A_space[snk.x][snk.y] = 0;
+		edResult->Text = snk.food_cnt;
+   }
+
+   snk.dir = dir;
+//   A_space[snk.bd_x[snk.len-1]][snk.bd_y[snk.len-1]] = 0;
+   for(i = snk.len; i > 0; i--) {
+	  snk.bd_x[i] = snk.bd_x[i-1];
+	  snk.bd_y[i] = snk.bd_y[i-1];
+   }
+   A_space[x_last][y_last] = 0;
+   if(food)snk.len++;
+   snk.bd_x[0] = tmp_x;
+   snk.bd_y[0] = tmp_y;
+
+}
+
+void Tfrm1::ACreatePanelsFields()
+ {
+	int x, y;
+	for (y = 0; y < Y_LEN; y++) {
+		for (x = 0; x < X_LEN; x++) {
+			pnlObj[x][y] = new TPanel(frm1);
+			pnlObj[x][y]->Parent = GroupBox1;
+			pnlObj[x][y]->Height = HI;
+			pnlObj[x][y]->Width = WT;
+			pnlObj[x][y]->Top = y * HI+5;
+			pnlObj[x][y]->Left = x * WT + 5;
+			pnlObj[x][y]->Visible = true;
+			pnlObj[x][y]->Color = clGray;
+			pnlObj[x][y]->ParentBackground = False;
+			pnlObj[x][y]->Ctl3D = false;
+
+		}
+	}
+}
+
+void Tfrm1::ACreateEyeFields()
+ {
+	int x, y;
+	for (y = 0; y < 9; y++) {
+		for (x = 0; x < 9; x++) {
+			eyeObj[x][y] = new TPanel(frm1);
+			eyeObj[x][y]->Parent = GroupBox3;
+			eyeObj[x][y]->Height = HI;
+			eyeObj[x][y]->Width = WT;
+			eyeObj[x][y]->Top = y * HI+5;
+			eyeObj[x][y]->Left = x * WT + 5;
+			eyeObj[x][y]->Visible = true;
+			eyeObj[x][y]->Color = clGray;
+			eyeObj[x][y]->ParentBackground = False;
+			eyeObj[x][y]->Ctl3D = false;
+
+		}
+	}
+}
+
+void Tfrm1::ACreateInfoFields()
+ {
+	int x, y, tmp;
+	tmp = 3;
+	for (y = 0; y < 18; y++) {
+	   //	tmp = (!(y%2)) ? tmp+2 : tmp;
+		for (x = 0; x < 18; x++) {
+
+			edObj[x][y] = new TEdit(frm1);
+			edObj[x][y]->Parent = GroupBox2;
+			edObj[x][y]->Height = 18;
+			edObj[x][y]->Width = 18;
+			edObj[x][y]->Top = (!(y%2)) ? (y * 22+2+tmp) : (y * 22+2);
+			edObj[x][y]->Left = (!(x%2)) ? (x * 22+2+tmp) : (x * 22+2);
+			edObj[x][y]->Visible = true;
+			edObj[x][y]->Color = clWindow;
+			edObj[x][y]->Ctl3D = false;
+
+		}
+	}
+}
+
+void Tfrm1::AShowWts(int type)
+{
+   int x,y;
+
+	for(y = 0; y < 18; y+=2){
+	   for(x = 0; x < 18; x+=2){
+		  edObj[x][y]->Text   = (type==FOOD) ? A_food[x/2][y/2].s_up : A_block[x/2][y/2].s_up;
+		  edObj[x][y+1]->Text = (type==FOOD) ? A_food[x/2][y/2].s_lf : A_block[x/2][y/2].s_lf;
+
+		  edObj[x+1][y]->Text   = (type==FOOD) ? A_food[x/2][y/2].s_rt : A_block[x/2][y/2].s_rt;
+		  edObj[x+1][y+1]->Text = (type==FOOD) ? A_food[x/2][y/2].s_dn : A_block[x/2][y/2].s_dn;
+
+
+
+
+		  edObj[x][y]->Color = clLime;
+		  edObj[x+1][y]->Color = 0x000080FF;
+		  edObj[x][y+1]->Color = clYellow;
+		  edObj[x+1][y+1]->Color = clWhite;
+	   }
+	}
+}
+
+
+void __fastcall Tfrm1::FormShow(TObject *Sender)
+{
+	ACreatePanelsFields();
+	ACreateInfoFields();
+	ACreateEyeFields();
+	AInitSnake();
+	AInitWts_1();
+	AInitSpace();
+	ARefreshFild();
+	AShowSnake();
+}
+//---------------------------------------------------------------------------
+
+void __fastcall Tfrm1::btUpClick(TObject *Sender)
+{
+  ARefreshFild();
+  AShiftSnke(UP);
+  AShowSnake();
+  AScanSpace();
+}
+//---------------------------------------------------------------------------
+
+void __fastcall Tfrm1::btDnClick(TObject *Sender)
+{
+  ARefreshFild();
+  AShiftSnke(DN);
+  AShowSnake();
+  AScanSpace();
+}
+//---------------------------------------------------------------------------
+
+void __fastcall Tfrm1::btLftClick(TObject *Sender)
+{
+  ARefreshFild();
+  AShiftSnke(LFT);
+  AShowSnake();
+  AScanSpace();
+}
+//---------------------------------------------------------------------------
+
+void __fastcall Tfrm1::btRgtClick(TObject *Sender)
+{
+  ARefreshFild();
+  AShiftSnke(RGT);
+  AShowSnake();
+  AScanSpace();
+}
+//---------------------------------------------------------------------------
+
+void __fastcall Tfrm1::Button1Click(TObject *Sender)
+{
+  AInitSpace();
+  AInitSnake();
+}
+//---------------------------------------------------------------------------
+
+
+
+void __fastcall Tfrm1::Timer1Timer(TObject *Sender)
+{
+  ARefreshFild();
+  if(chkAuto->Checked)AShiftSnke(A_dir);
+  AShowSnake();
+  AScanSpace();
+  A_dir = AMakeDecision();
+  ACreateEat();
+}
+//---------------------------------------------------------------------------
+
